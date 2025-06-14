@@ -1,9 +1,11 @@
 #include <iostream>
 #include <thread>
 #include <cstring>
+#include <string>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include "header.hpp"
 
 void receive_loop(int client_socket) {
     char buffer[1024];
@@ -15,10 +17,12 @@ void receive_loop(int client_socket) {
             break;
         }
         buffer[bytes] = '\0';
-        std::cout << "\n\033[31mClient: \033[37m" << buffer << "\n> ";
-        std::cout.flush();
+        {
+            std::cout << "\033[31mClient: \033[37m" << buffer << "\033[32mYou > \033[37m" << std::flush;
+        }
     }
 }
+
 
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -40,15 +44,23 @@ int main() {
     int client_socket = accept(server_fd, (sockaddr *)&client_addr, &addrlen);
     std::cout << "Client connected.\n";
 
+    // set commands 
+    std::map<std::string, bool>* cmds = SetCommands();
+
+    std::cout << "\033[32mYou > \033[37m";
     std::thread receiver(receive_loop, client_socket);
 
     while (true) {
-        std::string message;
-        std::cout << "\033[32mYou > \033[37m";
-        std::getline(std::cin, message);
-        if (message == "exit") break;
+    std::string message;
+    std::getline(std::cin, message);
+    if (message == "exit") break;
+    if(is_valid_command(cmds, message)){
         send(client_socket, message.c_str(), message.length(), 0);
+    } else {
+        std::cout << "Invalide Command\n\033[32mYou > \033[37m";
     }
+}
+
 
     close(client_socket);
     receiver.detach(); // Or receiver.join()
