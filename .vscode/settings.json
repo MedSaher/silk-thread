@@ -1,7 +1,5 @@
 {
     "files.associations": {
-        "cstring": "cpp",
-        "iostream": "cpp",
         "array": "cpp",
         "atomic": "cpp",
         "bit": "cpp",
@@ -18,6 +16,7 @@
         "cstdint": "cpp",
         "cstdio": "cpp",
         "cstdlib": "cpp",
+        "cstring": "cpp",
         "ctime": "cpp",
         "cwchar": "cpp",
         "cwctype": "cpp",
@@ -46,6 +45,7 @@
         "initializer_list": "cpp",
         "iomanip": "cpp",
         "iosfwd": "cpp",
+        "iostream": "cpp",
         "istream": "cpp",
         "limits": "cpp",
         "mutex": "cpp",

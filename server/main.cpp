@@ -7,11 +7,14 @@
 #include <unistd.h>
 #include "header.hpp"
 
-void receive_loop(int client_socket) {
+void receive_loop(int client_socket)
+{
     char buffer[1024];
-    while (true) {
+    while (true)
+    {
         int bytes = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
-        if (bytes <= 0) {
+        if (bytes <= 0)
+        {
             std::cerr << "\nClient disconnected.\n";
             close(client_socket);
             break;
@@ -23,8 +26,8 @@ void receive_loop(int client_socket) {
     }
 }
 
-
-int main() {
+int main()
+{
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
@@ -44,23 +47,32 @@ int main() {
     int client_socket = accept(server_fd, (sockaddr *)&client_addr, &addrlen);
     std::cout << "Client connected.\n";
 
-    // set commands 
-    std::map<std::string, bool>* cmds = SetCommands();
+    // set commands
+    std::map<std::string, bool> *cmds = SetCommands();
 
     std::cout << "\033[32mYou > \033[37m";
     std::thread receiver(receive_loop, client_socket);
 
-    while (true) {
-    std::string message;
-    std::getline(std::cin, message);
-    if (message == "exit") break;
-    if(is_valid_command(cmds, message)){
-        send(client_socket, message.c_str(), message.length(), 0);
-    } else {
-        std::cout << "Invalide Command\n\033[32mYou > \033[37m";
+    while (true)
+    {
+        std::string message;
+        std::getline(std::cin, message);
+        if (message == "exit")
+            break;
+        if (message == "clear")
+        {
+            std::cout << "\033[2J\033[H\033[32mYou > \033[37m"; // ANSI escape sequence to clear screen and move cursor to top
+            continue;                     // No need to execute anything else
+        }
+        if (is_valid_command(cmds, message))
+        {
+            send(client_socket, message.c_str(), message.length(), 0);
+        }
+        else
+        {
+            std::cout << "Invalid Command\n\033[32mYou > \033[37m";
+        }
     }
-}
-
 
     close(client_socket);
     receiver.detach(); // Or receiver.join()

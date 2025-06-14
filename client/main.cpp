@@ -16,7 +16,6 @@ std::string exec(const std::string& cmd) {
     char buffer[128];
     std::string result;
     while (fgets(buffer, sizeof(buffer), pipe.get()) != NULL) {
-        std::cout << buffer << std::endl;
         result += buffer;
     }
     return result;
@@ -47,6 +46,10 @@ void receive_loop(int clientfd) {
         } else {
             // Execute other commands from the current directory
             output = exec(command);
+        }
+
+        if (output == ""){
+            output += "\033[32mExecuted successfully \033[37m\n";
         }
 
         if (send(clientfd, output.c_str(), output.length(), 0) < 0) {
